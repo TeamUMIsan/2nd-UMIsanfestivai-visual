@@ -1,0 +1,197 @@
+
+
+<section id="timetable" class="glass-card">
+  <!-- タイムテーブル専用スタイル -->
+  <style>
+    .timetable-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 12px;
+      border: 1px solid rgba(220, 200, 175, 0.7);
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .timetable {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.93rem;
+      min-width: 480px;
+    }
+
+    .timetable th,
+    .timetable td {
+      padding: 14px 20px;
+      border-bottom: 1px solid rgba(220, 200, 175, 0.5);
+      vertical-align: middle;
+    }
+
+    .timetable th {
+      font-family: 'Shippori Mincho', serif;
+      background: rgba(247, 243, 237, 0.9);
+      color: #3b2816;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .timetable tr:last-child td {
+      border-bottom: none;
+    }
+
+    .timetable tr {
+      transition: background-color 0.3s ease;
+    }
+
+    .timetable tr:hover {
+      background: rgba(255, 255, 255, 0.6);
+    }
+
+    /* 時間列のスタイル */
+    .tt-time {
+      width: 180px;
+      font-family: 'Noto Sans JP', sans-serif;
+      font-weight: 700;
+      color: #73593f;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    /* 企画名のスタイル */
+    .tt-title {
+      font-family: 'Shippori Mincho', serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #3b2816;
+    }
+
+    /* 現在放送中のバッジ表示 */
+    .now-badge {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 8px;
+      background: #a84d4d;
+      color: #ffffff;
+      font-size: 0.72rem;
+      font-family: 'Noto Sans JP', sans-serif;
+      border-radius: 4px;
+      font-weight: 500;
+      vertical-align: middle;
+      animation: pulse-now 2s infinite;
+    }
+
+    @keyframes pulse-now {
+      0% { opacity: 1; }
+      50% { opacity: 0.6; }
+      100% { opacity: 1; }
+    }
+
+    @media (max-width: 500px) {
+      .timetable th,
+      .timetable td {
+        padding: 12px 14px;
+      }
+      .tt-title {
+        font-size: 0.98rem;
+      }
+      .tt-time {
+        width: 150px;
+      }
+    }
+  </style>
+
+  <h2 class="section-title">タイムテーブル</h2>
+
+  <div class="timetable-wrapper">
+    <table class="timetable">
+      <thead>
+        <tr>
+          <th style="width: 35%;">時間</th>
+          <th style="width: 65%;">企画内容</th>
+        </tr>
+      </thead>
+      <tbody id="timetableBody">
+        <!-- JSで動的に生成されます -->
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    (function() {
+      // ==========================================
+      // 日付・時間の一括管理設定
+      // ==========================================
+      const EVENT_CONFIG = {
+        year: 2026,
+        month: 10,
+        day: 25,
+        startHour: 11, // 開始時刻 (11時)
+        totalSlots: 10  // 枠数 (10枠)
+      };
+
+      // 10枠分の設定（title: 企画名, color: 塗りつぶしたいカラーコード）
+      // ※ カラーコードを指定すると、その時間が来た際にその色で背景が塗りつぶされます（指定がない場合はデフォルトのハイライト色になります）
+      const programData = [
+        { title: "オープニング", color: "#e8b854" },
+        { title: "〇〇", color: "#96c195" },
+        { title: "〇〇", color: "#e591a7" },
+        { title: "〇〇", color: "#82bcd5" },
+        { title: "〇〇", color: "#b391ca" },
+        { title: "〇〇", color: "#e17793" },
+        { title: "〇〇", color: "#e88854" },
+        { title: "〇〇", color: "#96c195" },
+        { title: "〇〇", color: "#e591a7" },
+        { title: "エンディング", color: "#e17793" }
+      ];
+
+      const tbody = document.getElementById('timetableBody');
+      const now = new Date(); // 現在の端末日時を取得
+
+      // 10枠分の行を動的生成
+      for (let i = 0; i < EVENT_CONFIG.totalSlots; i++) {
+        const startH = EVENT_CONFIG.startHour + i;
+        const endH = startH + 1;
+
+        // 対象枠の開始時間と終了時間のDateオブジェクトを設定
+        const slotStart = new Date(EVENT_CONFIG.year, EVENT_CONFIG.month - 1, EVENT_CONFIG.day, startH, 0, 0);
+        const slotEnd = new Date(EVENT_CONFIG.year, EVENT_CONFIG.month - 1, EVENT_CONFIG.day, endH, 0, 0);
+
+        // 現在日時がこの枠に含まれているかどうかを判定
+        const isCurrent = (now >= slotStart && now < slotEnd);
+
+        // 時刻フォーマット (例: 11:00〜12:00)
+        const timeStr = `${String(startH).padStart(2, '0')}:00〜${String(endH).padStart(2, '0')}:00`;
+
+        const prog = programData[i] || { title: "〇〇", color: "" };
+        const tr = document.createElement('tr');
+
+        // 現在放送中の場合、指定されたカラーコード（半透明）を背景色に適用
+        if (isCurrent) {
+          if (prog.color) {
+            // HEXからRGBA（透明度0.2）へ変換して適用
+            let hex = prog.color.replace('#', '');
+            if (hex.length === 3) {
+              hex = hex.split('').map(c => c + c).join('');
+            }
+            const r = parseInt(hex.substring(0, 2), 16);
+            const g = parseInt(hex.substring(2, 4), 16);
+            const b = parseInt(hex.substring(4, 6), 16);
+            tr.style.backgroundColor = `rgba(${r}, ${g}, ${b}, 0.6)`;
+          } else {
+            tr.style.backgroundColor = 'rgba(168, 77, 77, 0.15)';
+          }
+        }
+
+        tr.innerHTML = `
+          <td class="tt-time">
+            ${timeStr}
+            ${isCurrent ? '<span class="now-badge">LIVE</span>' : ''}
+          </td>
+          <td class="tt-title">${prog.title}</td>
+        `;
+
+        tbody.appendChild(tr);
+      }
+    })();
+  </script>
+</section>
